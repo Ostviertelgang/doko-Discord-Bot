@@ -27,8 +27,8 @@ services:
       - ./prod.env
 
 ```
-4. Fill in the values in the prod.env file and run:  
-``docker compose up -d``  
+4. Fill in the values in the prod.env file
+5. ``docker compose up -d``  
 5. Enjoy
 ## Planned Features
 1. Add players

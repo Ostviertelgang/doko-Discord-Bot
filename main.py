@@ -1,3 +1,5 @@
+import datetime
+
 import discord
 import requests
 import json
@@ -91,6 +93,12 @@ class Player():
             if similarity > JACCARD_SIMILARITY_THRESHOLD:
                 return player_obj["player_id"]
 
+    @staticmethod
+    def get_player_name_for_id(player_id):
+        potential_players = get_potential_players()
+        for player_obj in potential_players:
+            if player_obj["player_id"] == player_id:
+                return player_obj["name"]
 # client secret
 # Qa6hSqdaKMHwcoyZm8pdOAe0E8qJ9z2M # todo remove
 
@@ -190,12 +198,35 @@ class DoppelkopfBot(commands.Bot):
             res = requests.get(url + "/games", headers=headers)
             games = json.loads(res.text)
             game_list = []
-            for game in games["results"]:
-                game_list.append(game["game_name"] + " " + str(game["game_id"]) + " " + str([player["name"] for player in game["players"]]))
-            await message.channel.send(json.dumps(game_list, indent=4))
-            return # todo make fancy
+            for game in games["results"][-5:]:
+                created_at = datetime.datetime.strptime(game["created_at"], "%Y-%m-%dT%H:%M:%S.%fZ")
+                fancy_date = created_at.strftime("%Y.%m.%d %H:%M")
+                fancy_result_string = [f"{Player.get_player_name_for_id(player['player'])}: {player['points']}" for player in game["player_points"]]
+                await message.channel.send(f"Game from {fancy_date} with results {fancy_result_string}")
+            return
 
-        
+        if message.content.startswith('!get_players'):
+            res = requests.get(url + "/players", headers=headers)
+            players = json.loads(res.text)
+            player_list = []
+            for player in players["results"]:
+                player_list.append(player["name"])
+            player_string = ", ".join(player_list)
+            await message.channel.send(f"Players: {player_string}")
+            return
+
+        if message.content.startswith('!create_player'):
+            player_name = message.content.split()[1]
+            payload = {
+                "name": player_name
+            }
+            res = requests.post(url + "/players/", headers=headers, data=json.dumps(payload))
+            if res.status_code == 201:
+                await message.channel.send(f"Player {player_name} created")
+            else:
+                await message.channel.send("Error creating player")
+            return
+
 
         if message.content.startswith('!stop'):
             if self.in_game:
