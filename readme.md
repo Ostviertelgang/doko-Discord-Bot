@@ -1,7 +1,7 @@
 # doko Discord Bot
 This is a frontend for the doko_api Doppelkopf point counting solution in form of a Discord bot.
 
-You can find the server part [here]() (soon).
+You can find the server part [here](https://github.com/Ostviertelgang/doko-API).
 
 ## Features
 1. Start games with existing players and keep track of the poins of each player over a series of rounds.
@@ -9,7 +9,7 @@ You can find the server part [here]() (soon).
 3. Various getters and setters
 ## Installation
 
-1. Install the api server from [here]() (soon).
+1. Install the api server from [here](https://github.com/Ostviertelgang/doko-API).
 2. get the discord bot token from the discord developer portal.
 3. make a bot channel in your discord server and get the channel id.
 
