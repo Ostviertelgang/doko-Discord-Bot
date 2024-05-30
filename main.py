@@ -90,7 +90,8 @@ class Player():
             potential_players = get_potential_players()
         try:
             for player_obj in potential_players:
-                similarity = 1 - distance.jaccard(player_name, player_obj["name"])
+                similarity = 1 - distance.jaccard(player_name.lower(), player_obj["name"].lower())
+                print(f"Similarity between {player_name} and {player_obj['name']} is {similarity}")
                 if similarity > float(JACCARD_SIMILARITY_THRESHOLD):
                     return player_obj["player_id"]
 
@@ -207,7 +208,7 @@ class DoppelkopfBot(commands.Bot):
             response = requests.get(url + "/games", headers=headers, params=params)
             games = json.loads(response.text)
             game_list = []
-            for game in games["results"][-5:]:
+            for game in games["results"][-5:]: # todo temp remove [-5:]
                 created_at = datetime.datetime.strptime(game["created_at"], "%Y-%m-%dT%H:%M:%S.%fZ")
                 fancy_date = created_at.strftime("%Y.%m.%d %H:%M")
                 fancy_result_string = [f"{Player.get_player_name_for_id(player['player'])}: {player['points']}" for player in game["player_points"]]
