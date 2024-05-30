@@ -49,7 +49,7 @@ class Game():
         __init__(self, player_list, game_id):
             Constructs all the necessary attributes for the game object.
         """
-        def __init__(self, player_list = None, game_id = None):
+        def __init__(self, player_list = list(), game_id = None):
             """
             Constructs all the necessary attributes for the game object.
 
@@ -85,13 +85,19 @@ class Player():
     def get_player_id_for_name(player_name,only_in_game: Game = None):
         if only_in_game is not None:
             potential_players =  only_in_game.player_list
+            potential_players = [{"name": player.player_name, "player_id": player.player_id} for player in potential_players]
         else:
             potential_players = get_potential_players()
+        try:
+            for player_obj in potential_players:
+                similarity = 1 - distance.jaccard(player_name, player_obj["name"])
+                if similarity > float(JACCARD_SIMILARITY_THRESHOLD):
+                    return player_obj["player_id"]
 
-        for player_obj in potential_players:
-            similarity = 1 - distance.jaccard(player_name, player_obj["name"])
-            if similarity > JACCARD_SIMILARITY_THRESHOLD:
-                return player_obj["player_id"]
+        except Exception as e:
+            print("Error while getting player id for name")
+            print(e)
+
 
     @staticmethod
     def get_player_name_for_id(player_id):
@@ -153,6 +159,8 @@ class DoppelkopfBot(commands.Bot):
             return
 
 
+        # todo use the task_spawner pattern to clean up the on_message method
+
         if message.content.startswith('!start'):
             if self.in_game:
                 await message.channel.send("Game already running")
@@ -165,7 +173,7 @@ class DoppelkopfBot(commands.Bot):
                     player = Player(player_name)
                 except: # todo special exception for player_id not found
                     # await message.channel.send("Player " + player_name + " does not exist")
-                    await message.channel.send("Error adding player")
+                    await message.channel.send(f"Error adding player: {player_name} does not exist")
                     return
                 if self.debug_mode:
                     await message.channel.send(f"Found player {player.player_name} with id {player.player_id}.")
@@ -184,7 +192,7 @@ class DoppelkopfBot(commands.Bot):
             try: # make game
                 res = requests.post(url + "/games/", headers=headers, data=json.dumps(payload))
                 game_obj = json.loads(res.text)
-                game.id = game_obj["game_id"]
+                game.game_id = game_obj["game_id"]
                 self.in_game = True
                 self.game = game
                 return
@@ -195,8 +203,9 @@ class DoppelkopfBot(commands.Bot):
                 return
 
         if message.content.startswith('!get_games'):
-            res = requests.get(url + "/games", headers=headers)
-            games = json.loads(res.text)
+            params = {'ordering': '-created_at'} # todo check if this works and if it needs to get implementde in the server
+            response = requests.get(url + "/games", headers=headers, params=params)
+            games = json.loads(response.text)
             game_list = []
             for game in games["results"][-5:]:
                 created_at = datetime.datetime.strptime(game["created_at"], "%Y-%m-%dT%H:%M:%S.%fZ")
@@ -231,8 +240,13 @@ class DoppelkopfBot(commands.Bot):
         if message.content.startswith('!stop'):
             if self.in_game:
                 self.in_game = False
-                self.game = None
+                res = requests.post(url + "/games/" + str(self.game.game_id) + "/commit_game/", headers=headers)
+                if res.status_code == 201:
+                    await message.channel.send('Game stopped')
+                else:
+                    await message.channel.send('Error stopping game')
                 await message.channel.send('Stopping game')
+                self.game = None
                 return
             else:
                 await message.channel.send('No game running')
@@ -281,10 +295,11 @@ class DoppelkopfBot(commands.Bot):
             player_points = {}
             for round in rounds:
                 for player_point in round["player_points"]:
-                    if player_point["player"]["name"] not in player_points:
-                        player_points[player_point["player"]["name"]] = 0
-                    player_points[player_point["player"]["name"]] += player_point["points"]
-
+                    if player_point["player"] not in player_points:
+                        player_points[player_point["player"]] = 0
+                    player_points[player_point["player"]] += player_point["points"]
+            # translate player ids to names
+            player_points = {Player.get_player_name_for_id(player_id): points for player_id, points in player_points.items()}
             await message.channel.send(json.dumps(player_points, indent=4)) # todo make fancy
             return
 
@@ -297,7 +312,7 @@ class DoppelkopfBot(commands.Bot):
         try:
             if "," not in game_command_list[0]:  # solo. format solo Player_name points (not points*3)
                 points_winner = int(game_command_list[1])
-                winners = [game_command_list[0]]
+                winners = [game_command_list[0],]
             else:  # team game normal
                 winners = game_command_list[0].split(",") # format player1,player2 points
                 points_winner = int(game_command_list[1])
