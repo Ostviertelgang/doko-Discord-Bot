@@ -6,6 +6,7 @@ You can find the server part [here]() (soon).
 ## Features
 1. Start games with existing players and keep track of the poins of each player over a series of rounds.
 2. Get the current all time scores of a player.
+3. Various getters and setters
 ## Installation
 
 1. Install the api server from [here]() (soon).
@@ -27,11 +28,15 @@ services:
       - ./prod.env
 
 ```
-4. Fill in the values in the prod.env file
+4. Fill in the values in the prod.env file.  
+  (You can leave the jaccard threshold empty (defaults to 0.9). Its used for the player name matching.)
 5. ``docker compose up -d``  
 5. Enjoy
+
+## Usage
+WIP: for now ``!`` is the command prefix, try !help, start a game with !start player1 player2 player3 player4, then add points with ``winner1,winner2 points`` or for a solo ``winner1 points``.
+
+
 ## Planned Features
-1. Add players
 2. Full integration of the doko_api statistics endpoint
 2. Matplotlib integration for visualizing the scores
-3. 
