@@ -91,7 +91,6 @@ class Player():
         try:
             for player_obj in potential_players:
                 similarity = 1 - distance.jaccard(player_name.lower(), player_obj["name"].lower())
-                print(f"Similarity between {player_name} and {player_obj['name']} is {similarity}")
                 if similarity > float(JACCARD_SIMILARITY_THRESHOLD):
                     return player_obj["player_id"]
 
