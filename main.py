@@ -21,7 +21,10 @@ headers = {
     'accept': 'application/json',
     'Content-Type': 'application/json',
 }
-# intents = intents.messages = True # might be required by discord
+
+
+
+# commands dict
 
 
 @lru_cache(maxsize=128)
@@ -88,15 +91,14 @@ class Player():
             potential_players = [{"name": player.player_name, "player_id": player.player_id} for player in potential_players]
         else:
             potential_players = get_potential_players()
-        try:
-            for player_obj in potential_players:
-                similarity = 1 - distance.jaccard(player_name.lower(), player_obj["name"].lower())
-                if similarity > float(JACCARD_SIMILARITY_THRESHOLD):
-                    return player_obj["player_id"]
 
-        except Exception as e:
-            print("Error while getting player id for name")
-            print(e)
+        for player_obj in potential_players:
+            similarity = 1 - distance.jaccard(player_name.lower(), player_obj["name"].lower())
+            if similarity > float(JACCARD_SIMILARITY_THRESHOLD):
+                return player_obj["player_id"]
+
+        raise Exception("Player not found")
+
 
 
     @staticmethod
@@ -136,7 +138,6 @@ class DoppelkopfBot(commands.Bot):
         self.in_game = False
         self.debug_mode = False
         self.channel_ID = int(getenv("DISCORD_BOT_CHANNEL_ID"))
-        # todo, add a commands dict to clean up the on_message method
         super().__init__(*args, **kwargs)
 
     async def on_ready(self):
@@ -147,73 +148,157 @@ class DoppelkopfBot(commands.Bot):
         await bot.change_presence(activity=discord.Game(name="Doppelkopf"))
         await bot.get_channel(self.channel_ID).send("Bot is ready")
 
-    async def on_message(self, message):
+    # --------- start command methods ------------
+    async def start_game(self, message):
         """
-        A method to handle messages sent to the bot. (ugly and long :( )
+        A method to start a game with 4 players.
         :param message:
-        :return:
         """
-        if message.author == bot.user: # no self response
+        if self.in_game:
+            await message.channel.send("Game already running")
             return
-        if message.channel.id != self.channel_ID:  # bot channel
-            return
+        await message.channel.send('Starting game')
+        game = Game()
 
-
-        # todo use the task_spawner pattern to clean up the on_message method
-
-        if message.content.startswith('!start'):
-            if self.in_game:
-                await message.channel.send("Game already running")
-                return
-            await message.channel.send('Starting game')
-            game = Game()
-
-            for player_name in message.content.split()[1:]:
-                try:
-                    player = Player(player_name)
-                except: # todo special exception for player_id not found
-                    # await message.channel.send("Player " + player_name + " does not exist")
-                    await message.channel.send(f"Error adding player: {player_name} does not exist")
-                    return
+        for player_name in message.content.split()[1:]:
+            try:
+                player = Player(player_name)
+            except Exception as e:
                 if self.debug_mode:
-                    await message.channel.send(f"Found player {player.player_name} with id {player.player_id}.")
+                    await message.channel.send(e)
+                if "Player not found" in str(e):
+                    await message.channel.send(f"Error adding player: {player_name} does not exist")
                 else:
-                    await message.channel.send(f"Added player {player_name} to game")
-                game.player_list.append(player)
+                    await message.channel.send(f"Error adding player: {player_name}")
+                return
+            if self.debug_mode:
+                await message.channel.send(f"Found player {player.player_name} with id {player.player_id}.")
+            else:
+                await message.channel.send(f"Added player {player_name} to game")
+            game.player_list.append(player)
 
-            if len(game.player_list) != 4: # todo, support n players with only 4 per round
-                await message.channel.send("Wrong number of players")
-                return
-            payload = {
-                "game_name": "Discord Bot Game", # todo make editable?!
-                "is_closed": False,
-                "players": [player.player_id for player in game.player_list]
-            }
-            try: # make game
-                res = requests.post(url + "/games/", headers=headers, data=json.dumps(payload))
-                game_obj = json.loads(res.text)
-                game.game_id = game_obj["game_id"]
-                self.in_game = True
-                self.game = game
-                return
-            except:
-                self.in_game = False
-                self.game = None
-                await message.channel.send("Error starting game")
-                return
-
-        if message.content.startswith('!get_games'):
-            params = {'ordering': '-created_at'} # todo check if this works and if it needs to get implementde in the server
-            response = requests.get(url + "/games", headers=headers, params=params)
-            games = json.loads(response.text)
-            game_list = []
-            for game in games["results"][-5:]: # todo temp remove [-5:]
-                created_at = datetime.datetime.strptime(game["created_at"], "%Y-%m-%dT%H:%M:%S.%fZ")
-                fancy_date = created_at.strftime("%Y.%m.%d %H:%M")
-                fancy_result_string = [f"{Player.get_player_name_for_id(player['player'])}: {player['points']}" for player in game["player_points"]]
-                await message.channel.send(f"Game from {fancy_date} with results {fancy_result_string}")
+        if len(game.player_list) != 4:  # todo, support n players with only 4 per round
+            await message.channel.send("Wrong number of players")
+            return
+        payload = {
+            "game_name": "Discord Bot Game",  # todo make editable?!, yes, with cleanup of paramets to match those of add round
+            "is_closed": False,
+            "players": [player.player_id for player in game.player_list]
+        }
+        try:  # make game
+            res = requests.post(url + "/games/", headers=headers, data=json.dumps(payload))
+            game_obj = json.loads(res.text)
+            game.game_id = game_obj["game_id"]
+            self.in_game = True
+            self.game = game
+            return
+        except:
+            self.in_game = False
+            self.game = None
+            await message.channel.send("Error starting game")
             return
 
+    async def stop_game(self, message):
+        """
+        A method to stop the current game.
+        :param message:
+        """
+        if self.in_game:
+            self.in_game = False
+            res = requests.post(url + "/games/" + str(self.game.game_id) + "/commit_game/", headers=headers)
+            if res.status_code == 201:
+                await message.channel.send('Game stopped')
+            else:
+                await message.channel.send('Error stopping game')
+            await message.channel.send('Stopping game')
+            self.game = None
+            return
+        else:
+            await message.channel.send('No game running')
+            return
+
+    async def get_points(self, message):
+        """
+        A method to get the player points for the current game in a nice format.
+        :param message:
+        """
+        res = requests.get(url + "/games/" + str(self.game.game_id) + "/rounds/", headers=headers)  #
+        rounds = json.loads(res.text)
+        # exapmple rounds [{"game":18,"points":0,"created_at":"2024-05-23T17:58:11.876660Z","player_points":[{"player":{"player_id":"6b524db1-2e1b-43d5-ba85-82bd20b6f31a","name":"Valentin"},"points":100,"game_id":null,"round_id":9},{"player":{"player_id":"6664b7ec-e639-498c-92ef-0ee32481eef9","name":"Raven"},"points":-100,"game_id":null,"round_id":9},{"player":{"player_id":"28bd3a2f-bd53-4832-9854-fafb69da6a31","name":"caspar"},"points":-100,"game_id":null,"round_id":9},{"player":{"player_id":"32a56e51-46f1-4c7b-87e6-c15a055473c9","name":"Till"},"points":-100,"game_id":null,"round_id":9}]}]
+        # calc points for each player
+        player_points = {}
+        for round in rounds:
+            for player_point in round["player_points"]:
+                if player_point["player"] not in player_points:
+                    player_points[player_point["player"]] = 0
+                player_points[player_point["player"]] += player_point["points"]
+        # translate player ids to names
+        player_points = {Player.get_player_name_for_id(player_id): points for player_id, points in
+                         player_points.items()}
+        await message.channel.send(json.dumps(player_points, indent=4))  # todo make fancy
+        return
+
+    async def add_round(self, message):
+        """
+        A method to add points for a normal two player team game.
+        :param message:
+        """
+        game_command_list = message.content.split(" ")  # interpret the text as a points command to add a round
+
+        if len(game_command_list) < 2 or len(game_command_list) > 2:
+            await message.channel.send('Error while parsing as points command')
+            return
+        try:
+            if "," not in game_command_list[0]:  # solo. format solo Player_name points (not points*3)
+                points_winner = int(game_command_list[1])
+                winners = [game_command_list[0], ]
+            else:  # team game normal
+                winners = game_command_list[0].split(",")  # format player1,player2 points
+                points_winner = int(game_command_list[1])
+
+            winner_ids = [Player.get_player_id_for_name(player, only_in_game=self.game) for player in winners]
+            payload = {
+                "points": points_winner,
+                "winning_players": winner_ids,
+                "losing_players": [player.player_id for player in self.game.player_list if
+                                   player.player_id not in winner_ids]
+            }
+            if self.debug_mode:
+                await message.channel.send(json.dumps(payload, indent=4))
+            res = requests.post(url + "/games/" + str(self.game.game_id) + "/add_round/", headers=headers,
+                                data=json.dumps(payload))
+            succ = res.status_code == 201
+            if not succ:
+                await message.channel.send("Error adding round")
+                return
+            await message.channel.send('Round added')
+        except:
+            await message.channel.send('Error adding round')
+            return
+
+    async def get_games(self, message):
+        """
+        A method to get the last 5 games.
+        :param message:
+        """
+        params = {
+            'ordering': '-created_at'}  # todo check if this works and if it needs to get implementde in the server
+        response = requests.get(url + "/games", headers=headers, params=params)
+        games = json.loads(response.text)
+        game_list = []
+        for game in games["results"][-5:]:  # todo temp remove [-5:]
+            created_at = datetime.datetime.strptime(game["created_at"], "%Y-%m-%dT%H:%M:%S.%fZ")
+            fancy_date = created_at.strftime("%Y.%m.%d %H:%M")
+            fancy_result_string = [f"{Player.get_player_name_for_id(player['player'])}: {player['points']}" for player
+                                   in game["player_points"]]
+            await message.channel.send(f"Game from {fancy_date} with results {fancy_result_string}")
+        return
+
+    async def get_players(self, message):
+        """
+        A method to get all players.
+        :param message:
+        """
         if message.content.startswith('!get_players'):
             res = requests.get(url + "/players", headers=headers)
             players = json.loads(res.text)
@@ -224,116 +309,157 @@ class DoppelkopfBot(commands.Bot):
             await message.channel.send(f"Players: {player_string}")
             return
 
-        if message.content.startswith('!create_player'):
-            player_name = message.content.split()[1]
-            payload = {
-                "name": player_name
-            }
-            res = requests.post(url + "/players/", headers=headers, data=json.dumps(payload))
-            if res.status_code == 201:
-                await message.channel.send(f"Player {player_name} created")
-            else:
-                await message.channel.send("Error creating player")
+    async def create_player(self, message):
+        """
+        A method to create a player.
+        :param message:
+        """
+        # todo ccheck for dupliactes
+        player_name = message.content.split()[1]
+        payload = {
+            "name": player_name
+        }
+        res = requests.post(url + "/players/", headers=headers, data=json.dumps(payload))
+        if res.status_code == 201:
+            await message.channel.send(f"Player {player_name} created")
+        else:
+            await message.channel.send("Error creating player")
+        return
+
+    async def debug_mode(self, message):
+        """
+        A method to toggle debug mode.
+        :param message:
+        """
+        self.debug_mode = not self.debug_mode
+        await message.channel.send('Debug mode: ' + str(self.debug_mode))
+        if self.debug_mode:
+            try:
+                await message.channel.send('Players: ' + str([player.player_name for player in self.game.player_list]))
+                await message.channel.send('Game ID: ' + str(self.game.game_id))
+                await message.channel.send('Player IDs: ' + str([player.player_id for player in self.game.player_list]))
+            except:
+                await message.channel.send(
+                    'Lol crashed while writing debug report, likely uncatched Null pointer I am too lazy to fix. But thats no problem, I can recover.')
+        return
+
+    async def help_message(self, message):
+        """
+        A method to show a help message.
+        :param message:
+        """
+        message_to_send = "Commands:\n"
+        for command in self.commands:
+            message_to_send += f"{command}:\n {self.commands[command]['description']}\n{self.commands[command]['usage']}\n\n"
+        # send in discord code block
+        await message.channel.send(f"```{message_to_send}```")
+    commands = {
+        "start": {
+            "description": "start a game with 4 players",
+            "usage": "!start player1 player2 player3 player4",
+            "method": start_game,
+            "command_prefix": "!start",         #todo start 1h timer for game?
+            "only_in_game": False
+           },
+        "stop": {
+            "description": "stop the current game",
+            "usage": "!stop",
+            "method": stop_game,
+            "command_prefix": "!stop",
+            "only_in_game": True
+           },
+        "points": {
+            "description": "show points of all current players for the current game",
+            "usage": "!points",
+            "method": get_points,
+            "command_prefix": "!points",
+            "only_in_game": True
+           },
+        "normal": {
+            "description": "add points for winning team",
+            "usage": "<player1>,<player2> points",
+            "method": add_round,
+            "command_prefix": None,
+            "only_in_game": True
+           },
+        "solo": {
+            "description": "add points for solo winner",
+            "usage": "<player> points (not points*3)",
+            "method": add_round,
+            "command_prefix": None,
+            "only_in_game": True
+           },
+        "get_games": {
+            "description": "get the last 5 games",
+            "usage": "!get_games",
+            "method": get_games,
+            "command_prefix": "!get_games",
+            "only_in_game": False
+           },
+        "get_players": {
+            "description": "get all players",
+            "usage": "!get_players",
+            "method": get_players,
+            "command_prefix": "!get_players",
+            "only_in_game": False
+           },
+        "create_player": {
+            "description": "create a player",
+            "usage": "!create_player <player_name>",
+            "method": create_player,
+            "command_prefix": "!create_player",
+            "only_in_game": False
+           },
+        "debug": {
+            "description": "toggle debug mode and send debug report",
+            "usage": "!debug",
+            "method": debug_mode,
+            "command_prefix": "!debug",
+            "only_in_game": False
+           },
+        "help": {
+            "description": "show this help message",
+            "usage": "!help",
+            "method": help_message,
+            "command_prefix": "!help",
+            "only_in_game": False
+           }
+    }
+
+    async def on_message(self, message):
+        """
+        A method to handle messages sent to the bot.
+        :param message:
+        :return:
+        """
+        if message.author == bot.user: # no self response
+            return
+        if message.channel.id != self.channel_ID:  # bot channel
             return
 
-
-        if message.content.startswith('!stop'):
-            if self.in_game:
-                self.in_game = False
-                res = requests.post(url + "/games/" + str(self.game.game_id) + "/commit_game/", headers=headers)
-                if res.status_code == 201:
-                    await message.channel.send('Game stopped')
-                else:
-                    await message.channel.send('Error stopping game')
-                await message.channel.send('Stopping game')
-                self.game = None
+        if message.content.startswith('!'):
+            try:
+                for command in [command_loop for command_loop in self.commands if self.commands[command_loop]["command_prefix"] is not None]:
+                    if message.content.startswith(self.commands[command]["command_prefix"]):
+                        if self.commands[command]["only_in_game"] and not self.in_game:
+                            await message.channel.send("No game running")
+                            return
+                        await self.commands[command]["method"](self, message)
+                        return
+            except Exception as e:
+                await message.channel.send('Command failed')
+                if self.debug_mode:
+                    await message.channel.send(e)
                 return
-            else:
-                await message.channel.send('No game running')
-                return
-
-        if message.content.startswith('!help'):
-            await message.channel.send('!start player1 player2 player3 player4 - start a game with 4 players\n'
-                                       '!stop - stop the current game\n'
-                                       'points - (only in game) show points of all players\n'
-                                       '<player1>,<player2> points - (only in game) add points for winning team\n'
-                                       '!<player> points - (only in game) add points for solo winner\n'
-                                       '!debug - toggle debug mode\n'
-                                       '!help - show this help message')
-            return
-
-        if message.content.startswith('!debug'):
-            self.debug_mode = not self.debug_mode
-            await message.channel.send('Debug mode: ' + str(self.debug_mode))
-            if self.debug_mode:
-                try:
-                    await message.channel.send('Players: ' + str([player.player_name for player in self.game.player_list]))
-                    await message.channel.send('Game ID: ' + str(self.game.game_id))
-                    await message.channel.send('Player IDs: ' + str([player.player_id for player in self.game.player_list]))
-                except:
-                    await message.channel.send('Lol crashed while writing debug report, likely uncatched Null pointer I am too lazy to fix. But thats no problem, I can recover.')
-            return
-
-        if message.content.startswith('!'):  # unhandled command
             await message.channel.send('Unknown Command')
             return
-
-        if not self.in_game:
-            return
-
-        ## -------- only in game commands ------
-        #todo start 1h timer for game?
-
-        if message.content.startswith('points'): # todo make this use the command syntax to work cleanly with a player called "points"
-            """
-            get the player points for the current game in a nice format
-            """
-            res = requests.get(url + "/games/" + str(self.game.game_id) + "/rounds/", headers=headers)#
-            rounds = json.loads(res.text)
-            # exapmple rounds [{"game":18,"points":0,"created_at":"2024-05-23T17:58:11.876660Z","player_points":[{"player":{"player_id":"6b524db1-2e1b-43d5-ba85-82bd20b6f31a","name":"Valentin"},"points":100,"game_id":null,"round_id":9},{"player":{"player_id":"6664b7ec-e639-498c-92ef-0ee32481eef9","name":"Raven"},"points":-100,"game_id":null,"round_id":9},{"player":{"player_id":"28bd3a2f-bd53-4832-9854-fafb69da6a31","name":"caspar"},"points":-100,"game_id":null,"round_id":9},{"player":{"player_id":"32a56e51-46f1-4c7b-87e6-c15a055473c9","name":"Till"},"points":-100,"game_id":null,"round_id":9}]}]
-            # calc points for each player
-            player_points = {}
-            for round in rounds:
-                for player_point in round["player_points"]:
-                    if player_point["player"] not in player_points:
-                        player_points[player_point["player"]] = 0
-                    player_points[player_point["player"]] += player_point["points"]
-            # translate player ids to names
-            player_points = {Player.get_player_name_for_id(player_id): points for player_id, points in player_points.items()}
-            await message.channel.send(json.dumps(player_points, indent=4)) # todo make fancy
-            return
-
-
-        game_command_list = message.content.split(" ") # interpret the text as a points command to add a round
-
-        if len(game_command_list) < 2 or len(game_command_list) > 2:
-            await message.channel.send('Error while parsing as points command')
-            return
-        try:
-            if "," not in game_command_list[0]:  # solo. format solo Player_name points (not points*3)
-                points_winner = int(game_command_list[1])
-                winners = [game_command_list[0],]
-            else:  # team game normal
-                winners = game_command_list[0].split(",") # format player1,player2 points
-                points_winner = int(game_command_list[1])
-
-            winner_ids = [Player.get_player_id_for_name(player,only_in_game=self.game) for player in winners]
-            payload = {
-                "points": points_winner,
-                "winning_players": winner_ids,
-                "losing_players": [player.player_id for player in self.game.player_list if player.player_id not in winner_ids]
-            }
-            if self.debug_mode:
-                await message.channel.send(json.dumps(payload, indent=4))
-            res = requests.post(url + "/games/" + str(self.game.game_id) + "/add_round/", headers=headers, data=json.dumps(payload))
-            succ = res.status_code == 201
-            if not succ:
+        elif self.in_game:
+            try:
+                await self.add_round(message)
+            except Exception as e:
                 await message.channel.send("Error adding round")
-                return
-            await message.channel.send('Round added')
-        except:
-            await message.channel.send('Error adding round')
-            return
+                if self.debug_mode:
+                    await message.channel.send(e)
 
 
 bot = DoppelkopfBot(command_prefix='!', intents=intents)
