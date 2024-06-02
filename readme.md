@@ -43,7 +43,6 @@ WIP: for now ``!`` is the command prefix, try !help, start a game with !start pl
 
 ## todos after 1st playtest
 2. round undo
-3. with points command return the amount of player rounds
 4. discuss if bockrunde is part of frontend or backend, and implement it accordingly
 5. adding player who do not exist does not get right anwers 
 6. cleanup after game end failure (e.g. player not found) seems to have some bugs and youj cannot start a new game later

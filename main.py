@@ -160,7 +160,7 @@ class DoppelkopfBot(commands.Bot):
         await message.channel.send('Starting game')
         game = Game()
 
-        for player_name in message.content.split()[1:]:
+        for player_name in message.content.split()[1].split(","):
             try:
                 player = Player(player_name)
             except Exception as e:
@@ -181,7 +181,7 @@ class DoppelkopfBot(commands.Bot):
             await message.channel.send("Wrong number of players")
             return
         payload = {
-            "game_name": "Discord Bot Game",  # todo make editable?!, yes, with cleanup of paramets to match those of add round
+            "game_name": message.content.split()[2],
             "is_closed": False,
             "players": [player.player_id for player in game.player_list]
         }
@@ -233,9 +233,14 @@ class DoppelkopfBot(commands.Bot):
                     player_points[player_point["player"]] = 0
                 player_points[player_point["player"]] += player_point["points"]
         # translate player ids to names
-        player_points = {Player.get_player_name_for_id(player_id): points for player_id, points in
-                         player_points.items()}
-        await message.channel.send(json.dumps(player_points, indent=4))  # todo make fancy
+        #player_points = {Player.get_player_name_for_id(player_id): points for player_id, points in player_points.items()}
+        player_points_string_fancy = ""
+        for player_id in player_points:
+            player_points_string_fancy += f"{Player.get_player_name_for_id(player_id)}: {player_points[player_id]}\n"
+        #player_points_string_fancy = [f"{Player.get_player_name_for_id(player)}: {player_points['player']}" for player in player_points]
+        round_string = f'Points in round {len(rounds)}:'
+        send_string = "``"+round_string + "\n" + (player_points_string_fancy)+"``"
+        await message.channel.send(send_string)
         return
 
     async def add_round(self, message):
@@ -356,7 +361,7 @@ class DoppelkopfBot(commands.Bot):
     commands = {
         "start": {
             "description": "start a game with 4 players",
-            "usage": "!start player1 player2 player3 player4",
+            "usage": "!start player1,player2,player3,player4 game_name",
             "method": start_game,
             "command_prefix": "!start",         #todo start 1h timer for game?
             "only_in_game": False
