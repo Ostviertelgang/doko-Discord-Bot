@@ -223,7 +223,7 @@ class DoppelkopfBot(commands.Bot):
         :param message:
         """
         res = requests.get(url + "/games/" + str(self.game.game_id) + "/rounds/", headers=headers)  #
-        rounds = json.loads(res.text)
+        rounds = json.loads(res.text) # todo here i get to many rounds after undo
         # exapmple rounds [{"game":18,"points":0,"created_at":"2024-05-23T17:58:11.876660Z","player_points":[{"player":{"player_id":"6b524db1-2e1b-43d5-ba85-82bd20b6f31a","name":"Valentin"},"points":100,"game_id":null,"round_id":9},{"player":{"player_id":"6664b7ec-e639-498c-92ef-0ee32481eef9","name":"Raven"},"points":-100,"game_id":null,"round_id":9},{"player":{"player_id":"28bd3a2f-bd53-4832-9854-fafb69da6a31","name":"caspar"},"points":-100,"game_id":null,"round_id":9},{"player":{"player_id":"32a56e51-46f1-4c7b-87e6-c15a055473c9","name":"Till"},"points":-100,"game_id":null,"round_id":9}]}]
         # calc points for each player
         player_points = {}
@@ -297,6 +297,18 @@ class DoppelkopfBot(commands.Bot):
             fancy_result_string = [f"{Player.get_player_name_for_id(player['player'])}: {player['points']}" for player
                                    in game["player_points"]]
             await message.channel.send(f"Game from {fancy_date} with results {fancy_result_string}")
+        return
+
+    async def undo_round(self, message):
+        """
+        A method to undo the last round.
+        :param message:
+        """
+        res = requests.post(url + "/games/" + str(self.game.game_id) + "/undo_round/", headers=headers)
+        if res.status_code == 201:
+            await message.channel.send('Round undone')
+        else:
+            await message.channel.send('Error undoing round')
         return
 
     async def get_players(self, message):
@@ -394,6 +406,13 @@ class DoppelkopfBot(commands.Bot):
             "command_prefix": None,
             "only_in_game": True
            },
+        "undo_round": {
+            "description": "undo the last round",
+            "usage": "!undo_round",
+            "method": undo_round,
+            "command_prefix": "!undo_round",
+            "only_in_game": True
+              },
         "get_games": {
             "description": "get the last 5 games",
             "usage": "!get_games",
