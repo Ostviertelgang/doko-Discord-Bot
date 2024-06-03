@@ -217,6 +217,20 @@ class DoppelkopfBot(commands.Bot):
             await message.channel.send('No game running')
             return
 
+    async def get_players_with_pflichtsolo_ahead(self, message):
+        """
+        A method to get the players with Pflichtsolo ahead.
+        :param message:
+        """
+        res = requests.get(url + "/games/" + str(self.game.game_id) + "/get_pflichtsolo/", headers=headers)
+        players = json.loads(res.text)
+        player_list = []
+        for player in players:
+            player_list.append(player["name"])
+        player_string = ", ".join(player_list)
+        await message.channel.send(f"Players with Pflichtsolo ahead: {player_string}")
+        return
+
     async def get_points(self, message):
         """
         A method to get the player points for the current game in a nice format.
@@ -383,6 +397,13 @@ class DoppelkopfBot(commands.Bot):
             "usage": "!stop",
             "method": stop_game,
             "command_prefix": "!stop",
+            "only_in_game": True
+           },
+        "get_pflichtsolo_ahead": {
+            "description": "show players with Pflichtsolo ahead",
+            "usage": "!pflichtsolo",
+            "method": get_players_with_pflichtsolo_ahead,
+            "command_prefix": "!pflichtsolo",
             "only_in_game": True
            },
         "points": {
