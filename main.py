@@ -326,7 +326,7 @@ class DoppelkopfBot(commands.Bot):
         :param message:
         """
         res = requests.post(url + "/games/" + str(self.game.game_id) + "/undo_round/", headers=headers)
-        if res.status_code == 201:
+        if res.status_code == 200:
             await message.channel.send('Round undone')
         else:
             await message.channel.send('Error undoing round')
