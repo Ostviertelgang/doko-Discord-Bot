@@ -22,10 +22,17 @@ headers = {
     'Content-Type': 'application/json',
 }
 
-
-
-# commands dict
-
+def number_to_string(n):
+    number_dict = {
+        2: 'double',
+        3: 'triple',
+        4: 'quadruple',
+        5: 'quintuple',
+        6: 'six-times (wtf?)',
+        7: 'seven-times'
+        # Add more if needed
+    }
+    return number_dict.get(n, '')
 
 @lru_cache(maxsize=128)
 def get_potential_players():
@@ -259,6 +266,34 @@ class DoppelkopfBot(commands.Bot):
         await message.channel.send(send_string)
         return
 
+    async def get_bock_status(self, message):
+        """
+        A method to get the bock status of the current game.
+        :param message:
+        """
+        res = requests.get(url + "/games/" + str(self.game.game_id) + "/get_bock_status/", headers=headers)
+        bock_status = json.loads(res.text)
+        bock_status_list = bock_status["bock_round_status"]
+        amount = len(bock_status_list)
+        if amount == 0:
+            await message.channel.send("No bockrounds")
+            return
+        to_send = """``Bockrounds:\n"""
+
+        bock_status_list.sort()
+        last_remaining_round = 0
+        for remaining_rounds in bock_status_list:
+            if last_remaining_round != remaining_rounds:
+                if remaining_rounds -last_remaining_round == 1:
+                    to_send += f"bockround for {remaining_rounds -last_remaining_round} round\n"
+                else:
+                    to_send += f"{number_to_string(amount)} bockround for {remaining_rounds -last_remaining_round} rounds\n"
+                last_remaining_round = remaining_rounds
+            amount -= 1
+        to_send += "``"
+        await message.channel.send(to_send)
+        return
+
     async def add_round(self, message):
         """
         A method to add points for a normal two player team game.
@@ -420,6 +455,13 @@ class DoppelkopfBot(commands.Bot):
             "command_prefix": "!points",
             "only_in_game": True
            },
+        "bock_status": {
+            "description": "show the bock status of the current game",
+            "usage": "!bock",
+            "method": get_bock_status,
+            "command_prefix": "!bock",
+            "only_in_game": True
+              },
         "normal": {
             "description": "add points for winning team",
             "usage": "<player1>,<player2> points amount_caused_bock_parallel",
