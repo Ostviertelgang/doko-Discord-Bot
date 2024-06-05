@@ -43,5 +43,5 @@ WIP: for now ``!`` is the command prefix, try !help, start a game with !start pl
 
 ## todos after 1st playtest
 2. round undo
-4. discuss if bockrunde is part of frontend or backend, and implement it accordingly
 5. adding player who do not exist does not get right anwers 
+6. support seeing status of bockrunden

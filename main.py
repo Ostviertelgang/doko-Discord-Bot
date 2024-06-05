@@ -262,11 +262,11 @@ class DoppelkopfBot(commands.Bot):
     async def add_round(self, message):
         """
         A method to add points for a normal two player team game.
-        :param message:
+        :param message: should be in the format <player1>,<player2> points caused_bock_parallel
         """
         game_command_list = message.content.split(" ")  # interpret the text as a points command to add a round
 
-        if len(game_command_list) < 2 or len(game_command_list) > 2:
+        if len(game_command_list) < 2 or len(game_command_list) > 3:
             await message.channel.send('Error while parsing as points command')
             return
         try:
@@ -278,11 +278,16 @@ class DoppelkopfBot(commands.Bot):
                 points_winner = int(game_command_list[1])
 
             winner_ids = [Player.get_player_id_for_name(player, only_in_game=self.game) for player in winners]
+            if len(game_command_list) == 3:
+                bock_parallel = int(game_command_list[2])
+            else:
+                bock_parallel = 0
             payload = {
                 "points": points_winner,
                 "winning_players": winner_ids,
                 "losing_players": [player.player_id for player in self.game.player_list if
-                                   player.player_id not in winner_ids]
+                                   player.player_id not in winner_ids],
+                "caused_bock_parrallel": bock_parallel
             }
             if self.debug_mode:
                 await message.channel.send(json.dumps(payload, indent=4))
@@ -417,14 +422,14 @@ class DoppelkopfBot(commands.Bot):
            },
         "normal": {
             "description": "add points for winning team",
-            "usage": "<player1>,<player2> points",
+            "usage": "<player1>,<player2> points amount_caused_bock_parallel",
             "method": add_round,
             "command_prefix": None,
             "only_in_game": True
            },
         "solo": {
             "description": "add points for solo winner",
-            "usage": "<player> points (not points*3)",
+            "usage": "<player> points(not points*3) amount_caused_bock_parallel",
             "method": add_round,
             "command_prefix": None,
             "only_in_game": True
