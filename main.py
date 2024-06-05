@@ -387,8 +387,13 @@ class DoppelkopfBot(commands.Bot):
         A method to create a player.
         :param message:
         """
-        # todo ccheck for dupliactes
         player_name = message.content.split()[1]
+        res = requests.get(url + "/players", headers=headers)
+        players = json.loads(res.text)
+        for player in players["results"]:
+            if player["name"] == player_name:
+                await message.channel.send(f"Player {player_name} already exists")
+                return
         payload = {
             "name": player_name
         }

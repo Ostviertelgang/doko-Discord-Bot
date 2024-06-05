@@ -41,7 +41,3 @@ WIP: for now ``!`` is the command prefix, try !help, start a game with !start pl
 2. Full integration of the doko_api statistics endpoint
 2. Matplotlib integration for visualizing the scores
 
-## todos after 1st playtest
-2. round undo
-5. adding player who do not exist does not get right anwers 
-6. support seeing status of bockrunden
