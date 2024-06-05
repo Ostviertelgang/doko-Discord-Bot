@@ -52,7 +52,7 @@ class Game():
         __init__(self, player_list, game_id):
             Constructs all the necessary attributes for the game object.
         """
-        def __init__(self, player_list = list(), game_id = None):
+        def __init__(self, player_list=None, game_id = None):
             """
             Constructs all the necessary attributes for the game object.
 
@@ -63,6 +63,8 @@ class Game():
                 game_id : str
                     a unique identifier for the game
             """
+            if player_list is None:
+                player_list = list()
             self.game_id = game_id
             self.game_timeout = time.time() + default_timeout
             self.player_list = player_list
