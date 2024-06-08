@@ -182,8 +182,6 @@ class DoppelkopfBot(commands.Bot):
                 return
             if self.debug_mode:
                 await message.channel.send(f"Found player {player.player_name} with id {player.player_id}.")
-            else:
-                await message.channel.send(f"Added player {player_name} to game")
             game.player_list.append(player)
 
         if len(game.player_list) != 4:  # todo, support n players with only 4 per round
