@@ -166,7 +166,7 @@ class DoppelkopfBot(commands.Bot):
         if self.in_game:
             await message.channel.send("Game already running")
             return
-        await message.channel.send('Starting game')
+
         game = Game()
 
         for player_name in message.content.split()[1].split(","):
@@ -198,6 +198,7 @@ class DoppelkopfBot(commands.Bot):
             game.game_id = game_obj["game_id"]
             self.in_game = True
             self.game = game
+            await message.channel.send('Game started')
             return
         except:
             self.in_game = False
