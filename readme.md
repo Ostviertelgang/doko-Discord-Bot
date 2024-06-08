@@ -34,10 +34,32 @@ services:
 5. Enjoy
 
 ## Usage
-WIP: for now ``!`` is the command prefix, try !help, start a game with !start player1 player2 player3 player4, then add points with ``winner1,winner2 points`` or for a solo ``winner1 points``.
+Use ``!help`` to get a list of all commands.
+Some commands, such as the commands getting the points are only availabe in game. 
 
+General Usage:  
+``!command [arg1,arg_1] [arg2] ...``
 
-## Planned Features
-2. Full integration of the doko_api statistics endpoint
-2. Matplotlib integration for visualizing the scores
-
+the most important commands:
+```
+!start player1,player2,player3,player4 game_name
+winning_player1,winning_player2 points <optional: amount_of_bockrounds_caused> # for a normal game
+winning_player points <optional: amount_of_bockrounds_caused> # for a solo
+!points
+!bock # to get the current bockroundstatus
+!pflichtsolo # to see which player still have their pflichtsolo to go.
+!stop # close and commit the current game
+```
+#### Typical commands of a game:
+```
+!start Bob,Alice,Eve,Mallory just_gaming_no_spying
+Bob,Alice 2 # Bob and Alice won
+Mallory,Eve 4
+Eve 2 # Eve played a solo
+!points # get the current points
+Bob,Eve 12 1 # Bob and Eve won and caused a bockround
+!bock # get the current bock status
+!pflichtsolo # see who still has to play a solo
+Bob,Alice 3
+!stop # close the game
+```
