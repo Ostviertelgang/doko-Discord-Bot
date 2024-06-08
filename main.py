@@ -11,6 +11,7 @@ from os import getenv, remove
 from functools import lru_cache
 import matplotlib.pyplot as plt
 import pandas as pd
+import seaborn as sns
 
 
 load_dotenv('dev.env')
@@ -428,12 +429,21 @@ class DoppelkopfBot(commands.Bot):
     async def plot_stats(self, message):
         """
         A method to plot stats todo wip
+        todo make the x axis the game/ the rounds so aquidistant steps and not the date
+        make a plot at game stop of the overall points
         :param message:
         """
         player_name = message.content.split()[1]
         player_id = Player.get_player_id_for_name(player_name)
         if message.content.split()[2] is not None and message.content.split()[2] == "round":
-            res = requests.get(url + "/stats/" + str(player_id) + "/round_points/", headers=headers)
+            if message.content.split()[3] is not None: # todo currently hust game_id
+                game_id = message.content.split()[3]
+                payload = {
+                    "game_id": game_id
+                }
+                res = requests.get(url + "/stats/" + str(player_id) + "/round_points/", headers=headers, data=json.dumps(payload))
+            else:
+                res = requests.get(url + "/stats/" + str(player_id) + "/round_points/", headers=headers)
             player_points = json.loads(res.text)
             df = pd.DataFrame(player_points)
             df['created_at'] = pd.to_datetime(df['round_created_at'])
@@ -446,10 +456,19 @@ class DoppelkopfBot(commands.Bot):
         #df['created_at'] = df['created_at'].dt.strftime('%Y-%m-%d')
         df['points_cusum'] = df['points'].cumsum()
 
-        plt.plot(df['created_at'], df['points_cusum'])
+        sns.set_theme(style="whitegrid")
+        plt.figure(figsize=(10, 6))
+        sns.lineplot(data=df, x='created_at', y='points_cusum')
         plt.xlabel('Date')
+        plt.ylabel('Points')
+        plt.title(f'Points of {player_name}')
+        # rotate x axis
+        plt.xticks(rotation=45)
+        # more space for x axis
+        plt.tight_layout()
         plt.savefig(fname='plot')
         await message.channel.send(file=discord.File('plot.png'))
+        plt.clf()
         remove('plot.png')
 
 
