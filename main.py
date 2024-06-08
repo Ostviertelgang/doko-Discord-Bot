@@ -5,10 +5,15 @@ import requests
 import json
 from discord.ext import commands
 import time
-#from dotenv import load_dotenv
+from dotenv import load_dotenv
 import distance
-from os import getenv
+from os import getenv, remove
 from functools import lru_cache
+import matplotlib.pyplot as plt
+import pandas as pd
+
+
+load_dotenv('dev.env')
 
 JACCARD_SIMILARITY_THRESHOLD = getenv("CUSTOM_PLAYER_NAME_JACCARD_THRESHOLD", 0.9) # maybe tweak this with more knowledge
 
@@ -420,6 +425,37 @@ class DoppelkopfBot(commands.Bot):
                     'Lol crashed while writing debug report, likely uncatched Null pointer I am too lazy to fix. But thats no problem, I can recover.')
         return
 
+    async def plot_stats(self, message):
+        """
+        A method to plot stats todo wip
+        :param message:
+        """
+        player_name = message.content.split()[1]
+        player_id = Player.get_player_id_for_name(player_name)
+        if message.content.split()[2] is not None and message.content.split()[2] == "round":
+            res = requests.get(url + "/stats/" + str(player_id) + "/round_points/", headers=headers)
+            player_points = json.loads(res.text)
+            df = pd.DataFrame(player_points)
+            df['created_at'] = pd.to_datetime(df['round_created_at'])
+        else:
+            res = requests.get(url + "/stats/" + str(player_id) + "/game_points/", headers=headers)
+            player_points = json.loads(res.text)
+            df = pd.DataFrame(player_points)
+            df['created_at'] = pd.to_datetime(df['game_created_at'])
+        df = df.sort_values(by='created_at')
+        #df['created_at'] = df['created_at'].dt.strftime('%Y-%m-%d')
+        df['points_cusum'] = df['points'].cumsum()
+
+        plt.plot(df['created_at'], df['points_cusum'])
+        plt.xlabel('Date')
+        plt.savefig(fname='plot')
+        await message.channel.send(file=discord.File('plot.png'))
+        remove('plot.png')
+
+
+
+
+
     async def help_message(self, message):
         """
         A method to show a help message.
@@ -436,6 +472,13 @@ class DoppelkopfBot(commands.Bot):
             "usage": "!start player1,player2,player3,player4 game_name",
             "method": start_game,
             "command_prefix": "!start",         #todo start 1h timer for game?
+            "only_in_game": False
+           },
+        "plot": {
+            "description": "plot test",
+            "usage": "!plot",
+            "method": plot_stats,
+            "command_prefix": "!plot",
             "only_in_game": False
            },
         "stop": {
