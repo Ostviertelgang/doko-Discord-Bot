@@ -260,7 +260,7 @@ class DoppelkopfBot(commands.Bot):
         for player_id in player_points:
             player_points_string_fancy += f"{Player.get_player_name_for_id(player_id)}: {player_points[player_id]}\n"
         #player_points_string_fancy = [f"{Player.get_player_name_for_id(player)}: {player_points['player']}" for player in player_points]
-        round_string = f'Points in round {len(rounds)}:'
+        round_string = f'Points after round {len(rounds)}:'
         send_string = "``"+round_string + "\n" + (player_points_string_fancy)+"``"
         await message.channel.send(send_string)
         return
