@@ -88,7 +88,7 @@ class Player():
     """
     A class to represent a player.
     """
-    def __init__(self,player_name, player_id = None):
+    def __init__(self,player_name = None, player_id = None):
         """
         Constructs all the necessary attributes for the player object.
         :param player_id:
@@ -96,6 +96,10 @@ class Player():
         """
         if player_id is None and player_name is not None:
             player_id = self.get_player_id_for_name(player_name)
+        elif player_id is not None and player_name is None:
+            player_name = self.get_player_name_for_id(player_id)
+        else:
+            raise Exception("Either player_name or player_id must be provided")
         self.player_id = player_id
         self.player_name = player_name
         self.points = 0
@@ -195,8 +199,11 @@ class DoppelkopfBot(commands.Bot):
         if len(game.player_list) != 4:  # todo, support n players with only 4 per round
             await message.channel.send("Wrong number of players")
             return
+        # match all but the first two words
+        game_name = message.content.split()[2:]
+        game_name = " ".join(game_name)
         payload = {
-            "game_name": message.content.split()[2],
+            "game_name": game_name,
             "is_closed": False,
             "players": [player.player_id for player in game.player_list]
         }
@@ -206,7 +213,7 @@ class DoppelkopfBot(commands.Bot):
             game.game_id = game_obj["game_id"]
             self.in_game = True
             self.game = game
-            self.game.game_name =  message.content.split()[2]
+            self.game.game_name =  game_name
             await message.channel.send('Game started')
             return
         except:
@@ -273,7 +280,7 @@ class DoppelkopfBot(commands.Bot):
         round_string = f'Points after round {len(rounds)}:'
         send_string = "``"+round_string + "\n" + (player_points_string_fancy)+"``"
         await message.channel.send(send_string)
-        if len(message.content.split()) > 1 and message.content.split()[1] == "-e":
+        if len(message.content.split()) > 1 and message.content.split()[1] == "-v":
             await self.make_round_plot(self.game.game_id, message)
         return
 
@@ -487,6 +494,26 @@ class DoppelkopfBot(commands.Bot):
         plt.clf()
         remove('plot.png')
 
+    async def reload_game(self, message):
+        """
+        A method to reload a game. via game_id
+        :param message:
+        """
+        game_id = message.content.split()[1]
+        payload = {
+            "game_id": game_id
+        }
+        res = requests.get(url + "/games/" + str(game_id), headers=headers, data=json.dumps(payload))
+        game_obj = json.loads(res.text)
+        game = Game()
+        game.game_id = game_obj["game_id"]
+        game.game_name = game_obj["game_name"]
+        game.player_list = [Player(player_id = player_id) for player_id in game_obj["players"]]
+        self.game = game
+        self.in_game = True
+        await message.channel.send('Game reloaded')
+        return
+
     async def make_round_plot(self, game_id, message):
         """
         A method to make a plot at the end of a game.
@@ -504,20 +531,24 @@ class DoppelkopfBot(commands.Bot):
                                data=json.dumps(payload))
 
             player_points = json.loads(res.text)
+            player_name = Player.get_player_name_for_id(player_id)
+            df_zero = pd.DataFrame({'player': [player_name], 'points': [0]})
             df = pd.DataFrame(player_points)
-            df["player"] = Player.get_player_name_for_id(player_id)
+            df = pd.concat([df_zero, df])
+
+            df["player"] = player_name
             df["points_cusum"] = df['points'].cumsum()
-            df["discret_axis"] = range(1, len(df) + 1)
+            df["discret_axis"] = range(0, len(df))
             df_all = pd.concat([df_all, df])
 
-        sns.set_theme(style="whitegrid")
+        sns.set_theme(style="darkgrid")
         plt.figure(figsize=(10, 6))
 
         sns.lineplot(data=df_all, x='discret_axis', y='points_cusum',hue='player')
         plt.xlabel("Rounds")
 
         plt.ylabel('Points')
-        plt.title(f'Points for Game f{self.game.game_name}')
+        plt.title(f'Points for Game {self.game.game_name}')
         # rotate x axis
         plt.xticks(rotation=45)
         # more space for x axis
@@ -543,6 +574,13 @@ class DoppelkopfBot(commands.Bot):
             "usage": "!start player1,player2,player3,player4 game_name",
             "method": start_game,
             "command_prefix": "!start",         #todo start 1h timer for game?
+            "only_in_game": False
+           },
+        "reload": {
+            "description": "reload a game",
+            "usage": "!reload game_id",
+            "method": reload_game,
+            "command_prefix": "!reload",
             "only_in_game": False
            },
         "plot": {
