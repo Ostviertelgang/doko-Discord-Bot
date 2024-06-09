@@ -153,6 +153,7 @@ class DoppelkopfBot(commands.Bot):
         self.in_game = False
         self.debug_mode = False
         self.channel_ID = int(getenv("DISCORD_BOT_CHANNEL_ID"))
+        # todo game name?
         super().__init__(*args, **kwargs)
 
     async def on_ready(self):
@@ -225,6 +226,7 @@ class DoppelkopfBot(commands.Bot):
             else:
                 await message.channel.send('Error stopping game')
             await message.channel.send('Stopping game')
+            await self.make_round_plot(self.game.game_id, message)
             self.game = None
             return
         else:
@@ -251,7 +253,7 @@ class DoppelkopfBot(commands.Bot):
         :param message:
         """
         res = requests.get(url + "/games/" + str(self.game.game_id) + "/rounds/", headers=headers)  #
-        rounds = json.loads(res.text) # todo here i get to many rounds after undo
+        rounds = json.loads(res.text)
         # exapmple rounds [{"game":18,"points":0,"created_at":"2024-05-23T17:58:11.876660Z","player_points":[{"player":{"player_id":"6b524db1-2e1b-43d5-ba85-82bd20b6f31a","name":"Valentin"},"points":100,"game_id":null,"round_id":9},{"player":{"player_id":"6664b7ec-e639-498c-92ef-0ee32481eef9","name":"Raven"},"points":-100,"game_id":null,"round_id":9},{"player":{"player_id":"28bd3a2f-bd53-4832-9854-fafb69da6a31","name":"caspar"},"points":-100,"game_id":null,"round_id":9},{"player":{"player_id":"32a56e51-46f1-4c7b-87e6-c15a055473c9","name":"Till"},"points":-100,"game_id":null,"round_id":9}]}]
         # calc points for each player
         player_points = {}
@@ -269,6 +271,8 @@ class DoppelkopfBot(commands.Bot):
         round_string = f'Points after round {len(rounds)}:'
         send_string = "``"+round_string + "\n" + (player_points_string_fancy)+"``"
         await message.channel.send(send_string)
+        if len(message.content.split()) > 1 and message.content.split()[1] == "-e":
+            await self.make_round_plot(self.game.game_id, message)
         return
 
     async def get_bock_status(self, message):
@@ -433,6 +437,8 @@ class DoppelkopfBot(commands.Bot):
         make a plot at game stop of the overall points
         :param message:
         """
+        x_axis = "time"
+        x_axis = "discret round"
         player_name = message.content.split()[1]
         player_id = Player.get_player_id_for_name(player_name)
         if message.content.split()[2] is not None and message.content.split()[2] == "round":
@@ -447,19 +453,27 @@ class DoppelkopfBot(commands.Bot):
             player_points = json.loads(res.text)
             df = pd.DataFrame(player_points)
             df['created_at'] = pd.to_datetime(df['round_created_at'])
+            x_labl = "Round"
         else:
             res = requests.get(url + "/stats/" + str(player_id) + "/game_points/", headers=headers)
             player_points = json.loads(res.text)
             df = pd.DataFrame(player_points)
             df['created_at'] = pd.to_datetime(df['game_created_at'])
+            x_labl = "Game"
         df = df.sort_values(by='created_at')
         #df['created_at'] = df['created_at'].dt.strftime('%Y-%m-%d')
         df['points_cusum'] = df['points'].cumsum()
 
         sns.set_theme(style="whitegrid")
         plt.figure(figsize=(10, 6))
-        sns.lineplot(data=df, x='created_at', y='points_cusum')
-        plt.xlabel('Date')
+        if x_axis == "time":
+            sns.lineplot(data=df, x='created_at', y='points_cusum')
+            plt.xlabel('Date')
+        else:
+            df['discret_axis'] = range(1, len(df) + 1)
+            sns.lineplot(data=df, x='discret_axis', y='points_cusum')
+            plt.xlabel(x_labl)
+
         plt.ylabel('Points')
         plt.title(f'Points of {player_name}')
         # rotate x axis
@@ -471,9 +485,45 @@ class DoppelkopfBot(commands.Bot):
         plt.clf()
         remove('plot.png')
 
+    async def make_round_plot(self, game_id, message):
+        """
+        A method to make a plot at the end of a game.
+        :param game_id:
+        :return:
+        """
 
 
+        payload = {
+            "game_id": game_id
+        }
+        df_all = pd.DataFrame()
+        for player_id in [player.player_id for player in self.game.player_list]:
+            res = requests.get(url + "/stats/" + str(player_id) + "/round_points/", headers=headers,
+                               data=json.dumps(payload))
 
+            player_points = json.loads(res.text)
+            df = pd.DataFrame(player_points)
+            df["player"] = Player.get_player_name_for_id(player_id)
+            df["points_cusum"] = df['points'].cumsum()
+            df["discret_axis"] = range(1, len(df) + 1)
+            df_all = pd.concat([df_all, df])
+
+        sns.set_theme(style="whitegrid")
+        plt.figure(figsize=(10, 6))
+
+        sns.lineplot(data=df_all, x='discret_axis', y='points_cusum',hue='player')
+        plt.xlabel("Rounds")
+
+        plt.ylabel('Points')
+        plt.title(f'Points for Game') # todo game name
+        # rotate x axis
+        plt.xticks(rotation=45)
+        # more space for x axis
+        plt.tight_layout()
+        plt.savefig(fname='plot')
+        await message.channel.send(file=discord.File('plot.png'))
+        plt.clf()
+        remove('plot.png')
 
     async def help_message(self, message):
         """
