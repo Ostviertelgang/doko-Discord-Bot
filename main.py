@@ -81,6 +81,7 @@ class Game():
             self.game_id = game_id
             self.game_timeout = time.time() + default_timeout
             self.player_list = player_list
+            self.game_name = None
 
 
 class Player():
@@ -205,6 +206,7 @@ class DoppelkopfBot(commands.Bot):
             game.game_id = game_obj["game_id"]
             self.in_game = True
             self.game = game
+            self.game.game_name =  message.content.split()[2]
             await message.channel.send('Game started')
             return
         except:
@@ -226,7 +228,7 @@ class DoppelkopfBot(commands.Bot):
             else:
                 await message.channel.send('Error stopping game')
             await message.channel.send('Stopping game')
-            await self.make_round_plot(self.game.game_id, message)
+            await self.make_round_plot(self.game.game_id, message) # make a plot of the current (soon ended) game
             self.game = None
             return
         else:
@@ -515,7 +517,7 @@ class DoppelkopfBot(commands.Bot):
         plt.xlabel("Rounds")
 
         plt.ylabel('Points')
-        plt.title(f'Points for Game') # todo game name
+        plt.title(f'Points for Game f{self.game.game_name}')
         # rotate x axis
         plt.xticks(rotation=45)
         # more space for x axis
