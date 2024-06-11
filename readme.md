@@ -2,6 +2,10 @@
 
 ![Banner picture](https://i.imgur.com/5WsppRT.png)
 This is a frontend for the doko-API Doppelkopf point counting suite in form of a Discord bot.
+Doppelkopf is a german card game, that is played with 4 players in 2 teams. The goal is to get as many points as possible over a series of rounds.
+More information about the game can be found [here](https://en.wikipedia.org/wiki/Doppelkopf).
+
+The doko-suite does not implement the game itself, but is only a tool to keep track of the points of the players over a game (usually 16 rounds), as well as saving all time statistic and visualizing this data.
 
 You can find the server part [here](https://github.com/Ostviertelgang/doko-API).
 
@@ -42,12 +46,12 @@ services:
 
 ## Usage
 Use ``!help`` to get a list of all commands with a short description and usage information.
-Some commands, such as the commands getting the points are only availabe in game. 
+Some commands, such as the commands getting the points are only available in game. 
 
-General Usage:  
+### General Usage:  
 ``!command [arg1,arg_1] [arg2] ...``
 
-the most important commands:
+#### The most important commands:
 ```
 !start player1,player2,player3,player4 game_name
 winning_player1,winning_player2 points <optional: amount_of_bockrounds_caused> # for a normal game
@@ -59,7 +63,7 @@ winning_player points <optional: amount_of_bockrounds_caused> # for a solo
 ```
 #### Typical commands of a game:
 ```
-!start Bob,Alice,Eve,Mallory just_gaming_no_spying
+!start Bob,Alice,Eve,Mallory just gaming, no spying
 Bob,Alice 2 # Bob and Alice won and get 2 points, Eve and Mallory loose 2 points
 Mallory,Eve 4 # Mallory and Eve won and get 4 points, Bob and Alice loose 4 points
 Eve 2 # Eve played a solo, she gets 6 points, the others loose 2 points
