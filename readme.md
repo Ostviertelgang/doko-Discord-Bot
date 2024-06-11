@@ -1,4 +1,6 @@
 # doko Discord Bot
+
+![Banner picture](https://i.imgur.com/5WsppRT.png)
 This is a frontend for the doko_api Doppelkopf point counting solution in form of a Discord bot.
 
 You can find the server part [here](https://github.com/Ostviertelgang/doko-API).
