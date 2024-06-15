@@ -360,17 +360,20 @@ class DoppelkopfBot(commands.Bot):
         A method to get the last 5 games.
         :param message:
         """
-        params = {
-            'ordering': '-created_at'}  # todo check if this works and if it needs to get implementde in the server
-        response = requests.get(url + "/games", headers=headers, params=params)
+
+        page_number = 1
+        response = requests.get(f"{url}/games?page={page_number}", headers=headers)
+        message_to_send = """```"""
         games = json.loads(response.text)
-        game_list = []
-        for game in games["results"][-5:]:  # todo temp remove [-5:]
-            created_at = datetime.datetime.strptime(game["created_at"], "%Y-%m-%dT%H:%M:%S.%fZ")
-            fancy_date = created_at.strftime("%Y.%m.%d %H:%M")
-            fancy_result_string = [f"{Player.get_player_name_for_id(player['player'])}: {player['points']}" for player
-                                   in game["player_points"]]
-            await message.channel.send(f"Game from {fancy_date} with results {fancy_result_string}")
+        for game in games["results"][:5]:
+            date = datetime.datetime.strptime(game["created_at"], "%Y-%m-%dT%H:%M:%S.%f%z")
+            fancy_date = date.strftime("%d.%m.%Y %H:%M")
+            fancy_result_string = '\n'.join([f"{Player.get_player_name_for_id(player['player'])}: {player['points']}" for player in game["player_points"]])
+            game_name = game["game_name"]
+            message_to_send += f"Game {game_name} from {fancy_date} with results {fancy_result_string}\n"
+            #(f"Game {game_name} from {fancy_date} with results {fancy_result_string}")
+        message_to_send += "```"
+        await message.channel.send(message_to_send)
         return
 
     async def undo_round(self, message):
