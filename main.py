@@ -12,9 +12,13 @@ from functools import lru_cache
 import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
+from pathlib import Path
 
 
-load_dotenv('dev.env')
+if Path("dev.env").is_file():
+    load_dotenv('dev.env')
+else:
+    load_dotenv('prod.env')
 
 JACCARD_SIMILARITY_THRESHOLD = getenv("CUSTOM_PLAYER_NAME_JACCARD_THRESHOLD", 0.9) # maybe tweak this with more knowledge
 
@@ -127,13 +131,18 @@ class Player():
         for player_obj in potential_players:
             if player_obj["player_id"] == player_id:
                 return player_obj["name"]
-# client secret
-# Qa6hSqdaKMHwcoyZm8pdOAe0E8qJ9z2M # todo remove
 
-# db user doko pw uawohgdawiondiawud
-#root pw uawohgdawiondiawuduawohgdawiondiawud
-
-
+async def send_long_message(channel, message):
+    while message:
+        if len(message) <= 1000:
+            await channel.send(message)
+            break
+        else:
+            pos = message[:1000].rfind("\n")
+            if pos == -1:
+                pos = 1000
+            await channel.send(message[:pos])
+            message = message[pos:]
 
 class DoppelkopfBot(commands.Bot):
     """
@@ -409,7 +418,22 @@ class DoppelkopfBot(commands.Bot):
         :param message:
         """
         player_name = message.content.split()[1]
-        res = requests.get(url + "/players", headers=headers)
+        if self.debug_mode:
+            await message.channel.send(f"Creating player {player_name}")
+        try:
+            res = requests.get(url + "/players", headers=headers)
+        except Exception as e:
+            if not self.debug_mode:
+                await message.channel.send("Error creating players")
+                return
+            else:
+                await message.channel.send(str(e))
+                return
+
+        if res.status_code != 200:
+            await message.channel.send("Error creating players")
+            if self.debug_mode:
+                await send_long_message(message.channel, res.text)
         players = json.loads(res.text)
         for player in players["results"]:
             if player["name"] == player_name:
