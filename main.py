@@ -374,12 +374,12 @@ class DoppelkopfBot(commands.Bot):
         response = requests.get(f"{url}/games?page={page_number}", headers=headers)
         message_to_send = """```"""
         games = json.loads(response.text)
-        for game in games["results"][:5]:
+        for game in games[:5]:
             date = datetime.datetime.strptime(game["created_at"], "%Y-%m-%dT%H:%M:%S.%f%z")
             fancy_date = date.strftime("%d.%m.%Y %H:%M")
             fancy_result_string = '\n'.join([f"{Player.get_player_name_for_id(player['player'])}: {player['points']}" for player in game["player_points"]])
             game_name = game["game_name"]
-            message_to_send += f"Game {game_name} from {fancy_date} with results {fancy_result_string}\n"
+            message_to_send += f"Game {game_name} from {fancy_date} with results {fancy_result_string}\n\n"
             #(f"Game {game_name} from {fancy_date} with results {fancy_result_string}")
         message_to_send += "```"
         await message.channel.send(message_to_send)
@@ -521,8 +521,6 @@ class DoppelkopfBot(commands.Bot):
 
         plt.ylabel('Points')
         plt.title(f'Points for Game {self.game.game_name}')
-        # rotate x axis
-        plt.xticks(rotation=45)
         # more space for x axis
         plt.tight_layout()
         plt.savefig(fname='plot')
