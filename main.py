@@ -374,7 +374,7 @@ class DoppelkopfBot(commands.Bot):
         response = requests.get(f"{url}/games?page={page_number}", headers=headers)
         message_to_send = """```"""
         games = json.loads(response.text)
-        if len(games["results"]) == 0:
+        if len(games) == 0:
             await message.channel.send("No games found")
             return
         for game in games[:5]:
