@@ -374,6 +374,9 @@ class DoppelkopfBot(commands.Bot):
         response = requests.get(f"{url}/games?page={page_number}", headers=headers)
         message_to_send = """```"""
         games = json.loads(response.text)
+        if len(games["results"]) == 0:
+            await message.channel.send("No games found")
+            return
         for game in games[:5]:
             date = datetime.datetime.strptime(game["created_at"], "%Y-%m-%dT%H:%M:%S.%f%z")
             fancy_date = date.strftime("%d.%m.%Y %H:%M")
@@ -402,15 +405,18 @@ class DoppelkopfBot(commands.Bot):
         A method to get all players.
         :param message:
         """
-        if message.content.startswith('!get_players'):
-            res = requests.get(url + "/players", headers=headers)
-            players = json.loads(res.text)
-            player_list = []
-            for player in players["results"]:
-                player_list.append(player["name"])
-            player_string = ", ".join(player_list)
-            await message.channel.send(f"Players: {player_string}")
+
+        res = requests.get(url + "/players", headers=headers)
+        players = json.loads(res.text)
+        player_list = []
+        if len(players["results"]) == 0:
+            await message.channel.send("No players found")
             return
+        for player in players["results"]:
+            player_list.append(player["name"])
+        player_string = ", ".join(player_list)
+        await message.channel.send(f"Players: {player_string}")
+        return
 
     async def create_player(self, message):
         """
