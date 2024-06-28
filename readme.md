@@ -27,7 +27,7 @@ DISCORD_CHANNEL_ID=your_discord_channel_id
 API_URL=http://NAME_OF_YOUR_API_NGINX_CONTAINER/
 JACCARD_THRESHOLD=0.9 # or leave emtpy
 ```
-5. Use one of the docker-compose files in the repo or customize it to your needs. Here is an example:
+5. Use one of the docker-compose files in the repo or customize it to your needs or proceed below with building the container yourself or docker run from here. Here is an example docker-compose:
 ```bash
 version: '3.8'
 services:
@@ -58,8 +58,13 @@ services:
 
 ```
 4. Fill in the values in the prod.env file.  
-  (You can leave the jaccard threshold empty (defaults to 0.9). It's used for the player name matching.)
+  (You can find instructions above in the general installation steps)
 5. ``docker compose up -d``
+
+### Docker run:
+1. Get a prod.env file and fill in the values as described above.
+2. ``docker run -d --name discord_bot --env-file ./prod.env valentin123/doko-discord-bot:latest python main.py``
+
 
 ## Usage
 Use ``!help`` to get a list of all commands with a short description and usage information.
